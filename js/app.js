@@ -24,7 +24,9 @@
     modal: document.querySelector('.modal'),
     resultTitle: document.getElementById('result-title'),
     resultText: document.getElementById('result-text'),
-    playAgain: document.getElementById('play-again')
+    playAgain: document.getElementById('play-again'),
+    difficulty: document.getElementById('difficulty'),
+    difficultyBadge: document.getElementById('difficulty-badge')
   };
 
   var state;
@@ -34,6 +36,7 @@
   var computerTimer = null;
   var lastPointerType = 'mouse';
   var lastPlayerShotText = '';
+  var difficulty = 'medium';
 
   function coord(index) {
     var p = L.toRowCol(index);
@@ -221,7 +224,7 @@
   function computerTurn() {
     computerTimer = null;
     if (state.phase !== 'battle' || state.turn !== 'computer') return;
-    var index = L.chooseComputerShot(state.player);
+    var index = L.chooseComputerShot(state.player, Math.random, difficulty);
     var shot = L.receiveShot(state.player, index);
     state.lastShot = { board: 'player', index: index };
     var text = describe(shot.result, shot.ship, 'Computer', index);
@@ -241,12 +244,12 @@
     if (playerWon) {
       setMessage('You win!', text, 'player');
       els.resultTitle.textContent = 'You win!';
-      els.resultText.textContent = 'You sank the entire enemy fleet in ' + shots + ' shots.';
+      els.resultText.textContent = 'You sank the entire enemy fleet in ' + shots + ' shots on ' + difficultyName() + '.';
       els.modal.className = 'modal is-win';
     } else {
       setMessage('You lose', text, 'lose');
       els.resultTitle.textContent = 'You lose';
-      els.resultText.textContent = 'The computer sank your fleet. Its remaining ships are now revealed.';
+      els.resultText.textContent = 'The computer sank your fleet on ' + difficultyName() + '. Its remaining ships are now revealed.';
       els.modal.className = 'modal is-lose';
     }
     renderAll();
@@ -259,6 +262,7 @@
   function renderAll() {
     els.body.className = 'phase-' + state.phase;
     renderDock();
+    renderDifficulty();
     renderPlayerBoard();
     renderEnemyBoard();
     renderFleet(els.playerFleet, state.player);
@@ -293,6 +297,19 @@
     els.rotate.textContent = 'Rotate (R): ' + (state.horizontal ? 'Horizontal' : 'Vertical');
     els.rotate.setAttribute('aria-pressed', String(!state.horizontal));
     els.start.disabled = state.player.ships.length !== L.SHIPS.length;
+  }
+
+  function difficultyName() {
+    return difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+  }
+
+  function renderDifficulty() {
+    Array.prototype.forEach.call(els.difficulty.querySelectorAll('input'), function (input) {
+      input.checked = input.value === difficulty;
+      input.disabled = state.phase !== 'placement';
+    });
+    els.difficultyBadge.textContent = difficultyName();
+    els.difficultyBadge.className = 'badge is-' + difficulty;
   }
 
   function sunkSet(board) {
@@ -395,6 +412,12 @@
     if (!chip || chip.disabled || state.phase !== 'placement') return;
     state.selected = chip.dataset.ship;
     renderAll();
+  });
+
+  els.difficulty.addEventListener('change', function (e) {
+    if (state.phase !== 'placement' || L.DIFFICULTIES.indexOf(e.target.value) === -1) return;
+    difficulty = e.target.value;
+    renderDifficulty();
   });
 
   els.rotate.addEventListener('click', toggleRotate);

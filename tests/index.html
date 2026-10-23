@@ -171,7 +171,7 @@
         }
       });
 
-      test('AI difficulty: smarter than random hunting, not perfect (average shots)', function () {
+      test('medium difficulty: smarter than random hunting, not perfect (average shots)', function () {
         var total = 0, games = 200;
         for (var g = 0; g < games; g++) {
           var rng = seeded(g + 99);
@@ -185,10 +185,100 @@
         assert(avg > 42, 'average shots ' + avg + ' should stay beatable, not near-perfect');
       });
 
+      function playGame(seed, difficulty) {
+        var rng = seeded(seed);
+        var b = L.placeAllRandom(L.createBoard(), rng);
+        var seq = [];
+        while (!L.allSunk(b)) {
+          var t = L.chooseComputerShot(b, rng, difficulty);
+          var r = L.receiveShot(b, t);
+          assert(r.result !== 'repeat' && r.result !== 'invalid', difficulty + ': bad shot ' + t + ' ' + r.result);
+          seq.push(t);
+          assert(seq.length <= 100, difficulty + ': too many shots');
+        }
+        return seq;
+      }
+
+      test('medium is the default and is unchanged', function () {
+        eq(L.DIFFICULTIES.join(','), 'easy,medium,hard');
+        for (var g = 0; g < 50; g++) {
+          eq(playGame(g + 99, 'medium').join(','), playGame(g + 99).join(','), 'medium differs from default in game ' + g);
+        }
+      });
+
+      test('easy and hard never repeat and always finish (200 games each)', function () {
+        for (var g = 0; g < 200; g++) { playGame(g + 7, 'easy'); playGame(g + 7, 'hard'); }
+      });
+
+      test('easy fires next to a hit but does not follow the line', function () {
+        var b = L.createBoard();
+        L.placeShip(b, def('Carrier'), 4, 2, true);
+        L.receiveShot(b, L.toIndex(4, 4));
+        L.receiveShot(b, L.toIndex(4, 5));
+        var offLine = 0;
+        for (var n = 0; n < 100; n++) {
+          var t = L.chooseComputerShot(b, seeded(n + 1), 'easy');
+          var nextToHit = L.neighbors(L.toIndex(4, 4)).concat(L.neighbors(L.toIndex(4, 5))).indexOf(t) !== -1;
+          assert(nextToHit && !b.shots[t], 'should fire next to a hit, got ' + t);
+          if (L.toRowCol(t).row !== 4) offLine++;
+        }
+        assert(offLine > 30, 'easy should often miss the direction, only ' + offLine + '/100 off the line');
+      });
+
+      test('hard targets neighbours after a hit and follows the line', function () {
+        var b = L.createBoard();
+        L.placeShip(b, def('Carrier'), 4, 2, true);
+        L.receiveShot(b, L.toIndex(4, 4));
+        for (var n = 0; n < 20; n++) {
+          var t = L.chooseComputerShot(b, seeded(n + 1), 'hard');
+          assert(L.neighbors(L.toIndex(4, 4)).indexOf(t) !== -1, 'should fire next to hit, got ' + t);
+        }
+        L.receiveShot(b, L.toIndex(4, 5));
+        for (var m = 0; m < 20; m++) {
+          var u = L.chooseComputerShot(b, seeded(m + 1), 'hard');
+          assert(u === L.toIndex(4, 3) || u === L.toIndex(4, 6), 'should extend line, got ' + u);
+        }
+      });
+
+      test('easy search shots bunch up, hard spread out', function () {
+        function nearMissShare(difficulty) {
+          var near = 0, total = 0;
+          for (var g = 0; g < 100; g++) {
+            var rng = seeded(g + 300);
+            var b = L.placeAllRandom(L.createBoard(), rng);
+            for (var k = 0; k < 25; k++) {
+              var t = L.chooseComputerShot(b, rng, difficulty);
+              if (L.neighbors(t).some(function (n) { return b.shots[n] === 'miss'; })) near++;
+              total++;
+              b.shots[t] = 'miss';
+            }
+          }
+          return near / total;
+        }
+        var easy = nearMissShare('easy'), medium = nearMissShare('medium'), hard = nearMissShare('hard');
+        assert(easy > 0.4, 'easy should often fire next to earlier misses: ' + easy.toFixed(2));
+        assert(easy > medium * 2, 'easy ' + easy.toFixed(2) + ' should bunch up more than medium ' + medium.toFixed(2));
+        assert(hard <= medium, 'hard ' + hard.toFixed(2) + ' should spread out at least as well as medium ' + medium.toFixed(2));
+      });
+
+      test('difficulty ordering: easy > medium > hard (average shots to win)', function () {
+        var avg = {};
+        L.DIFFICULTIES.forEach(function (d) {
+          var total = 0;
+          for (var g = 0; g < 200; g++) total += playGame(g + 99, d).length;
+          avg[d] = total / 200;
+        });
+        window.__aiAverages = avg;
+        assert(avg.easy > 58, 'easy ' + avg.easy + ' should be clearly weaker');
+        assert(avg.easy > avg.medium + 10, 'easy ' + avg.easy + ' vs medium ' + avg.medium);
+        assert(avg.hard < avg.medium - 1.5, 'hard ' + avg.hard + ' should beat medium ' + avg.medium);
+      });
+
       var failed = results.filter(function (r) { return !r.ok; });
       document.getElementById('summary').textContent =
         (failed.length ? failed.length + ' failed, ' : 'All passed: ') + results.length + ' tests' +
-        (window.__aiAverageShots ? ' (AI avg ' + window.__aiAverageShots.toFixed(1) + ' shots/game)' : '');
+        (window.__aiAverages ? ' (AI avg shots/game: easy ' + window.__aiAverages.easy.toFixed(1) +
+          ', medium ' + window.__aiAverages.medium.toFixed(1) + ', hard ' + window.__aiAverages.hard.toFixed(1) + ')' : '');
       document.getElementById('summary').className = failed.length ? 'fail' : 'pass';
       var ul = document.getElementById('results');
       results.forEach(function (r) {

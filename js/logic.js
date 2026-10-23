@@ -125,13 +125,20 @@
     return out;
   }
 
+  var DIFFICULTIES = ['easy', 'medium', 'hard'];
+  var EASY_CLUSTER_CHANCE = 0.6;
+  var EASY_CLUSTER_RADIUS = 2;
+
   /**
-   * Computer opponent: hunt randomly, then target around hits that do not yet
-   * belong to a sunk ship. When two or more hits line up, keep firing along
-   * that line before trying other neighbours.
+   * Computer opponent. difficulty is 'easy', 'medium' (default) or 'hard'.
+   * Medium: spread-out search (see chooseHuntShot), then target around hits that
+   * do not yet belong to a sunk ship. When two or more hits line up, keep firing
+   * along that line before trying other neighbours.
    */
-  function chooseComputerShot(board, rng) {
+  function chooseComputerShot(board, rng, difficulty) {
     rng = rng || Math.random;
+    if (difficulty === 'easy') return chooseEasyShot(board, rng);
+    if (difficulty === 'hard') return chooseHardShot(board, rng);
     var unshot = function (i) { return !board.shots[i]; };
     var pick = function (list) { return list[Math.floor(rng() * list.length)]; };
 
@@ -216,6 +223,100 @@
     return weightedPick(candidates, function (i) { return density[i]; }, rng);
   }
 
+  function openHitInfo(board) {
+    var sunk = {};
+    board.ships.forEach(function (s) {
+      if (isSunk(s)) s.cells.forEach(function (c) { sunk[c] = true; });
+    });
+    var hits = Object.keys(board.shots)
+      .map(Number)
+      .filter(function (i) { return board.shots[i] === 'hit' && !sunk[i]; });
+    var isOpen = {};
+    hits.forEach(function (i) { isOpen[i] = true; });
+    return { hits: hits, isOpen: isOpen, sunk: sunk };
+  }
+
+  function remainingSizes(board) {
+    var sizes = board.ships.filter(function (s) { return !isSunk(s); }).map(function (s) { return s.size; });
+    return sizes.length ? sizes : SHIPS.map(function (s) { return s.size; });
+  }
+
+  function unshotCells(board, keep) {
+    var out = [];
+    for (var i = 0; i < SIZE * SIZE; i++) if (!board.shots[i] && (!keep || keep(i))) out.push(i);
+    return out;
+  }
+
+  /**
+   * Easy: after a hit it fires at a random square next to it, but never works out
+   * which way the ship runs. While searching it often fires within a couple of
+   * squares of an earlier shot, so its shots bunch up, and otherwise fires anywhere.
+   */
+  function chooseEasyShot(board, rng) {
+    var pick = function (list) { return list.length ? list[Math.floor(rng() * list.length)] : -1; };
+    var info = openHitInfo(board);
+    var adj = [];
+    info.hits.forEach(function (i) {
+      neighbors(i).forEach(function (n) { if (!board.shots[n]) adj.push(n); });
+    });
+    if (adj.length) return pick(adj);
+
+    var shots = Object.keys(board.shots).map(Number);
+    if (shots.length && rng() < EASY_CLUSTER_CHANCE) {
+      var a = toRowCol(pick(shots));
+      var near = unshotCells(board, function (i) {
+        var p = toRowCol(i);
+        return Math.abs(p.row - a.row) <= EASY_CLUSTER_RADIUS && Math.abs(p.col - a.col) <= EASY_CLUSTER_RADIUS;
+      });
+      if (near.length) return pick(near);
+    }
+    return pick(unshotCells(board));
+  }
+
+  /**
+   * Hard: scores every unshot square by how many ways the remaining ships could
+   * still lie across it, avoiding misses and sunk ships, and fires at the best one.
+   * After a hit it only counts ship positions that pass through the unsunk hits,
+   * favouring positions that cover more of them, so it finds the ship's direction
+   * quickly. While searching it stays on the same spaced grid as Medium.
+   */
+  function chooseHardShot(board, rng) {
+    var info = openHitInfo(board);
+    var targeting = info.hits.length > 0;
+    var blocked = function (i) { return board.shots[i] === 'miss' || info.sunk[i]; };
+    var sizes = remainingSizes(board);
+    var score = new Array(SIZE * SIZE).fill(0);
+    sizes.forEach(function (size) {
+      for (var r = 0; r < SIZE; r++) {
+        for (var c = 0; c < SIZE; c++) {
+          [true, false].forEach(function (horizontal) {
+            var cells = shipCells(size, r, c, horizontal);
+            if (!cells || cells.some(blocked)) return;
+            var covered = cells.filter(function (i) { return info.isOpen[i]; }).length;
+            if (targeting && !covered) return;
+            var weight = targeting ? Math.pow(20, covered) : 1;
+            cells.forEach(function (i) { if (!board.shots[i]) score[i] += weight; });
+          });
+        }
+      }
+    });
+
+    var candidates = unshotCells(board, function (i) { return score[i] > 0; });
+    if (!targeting) {
+      var minSize = Math.min.apply(null, sizes);
+      if (board.aiParity === undefined) board.aiParity = Math.floor(rng() * SIZE);
+      var grid = candidates.filter(function (i) {
+        var p = toRowCol(i);
+        return (p.row + p.col) % minSize === board.aiParity % minSize;
+      });
+      if (grid.length) candidates = grid;
+    }
+    if (!candidates.length) return chooseComputerShot(board, rng, 'medium');
+    var best = Math.max.apply(null, candidates.map(function (i) { return score[i]; }));
+    var top = candidates.filter(function (i) { return score[i] === best; });
+    return top[Math.floor(rng() * top.length)];
+  }
+
   function weightedPick(list, weightOf, rng) {
     var total = 0;
     var weights = list.map(function (i) { var w = weightOf(i); total += w; return w; });
@@ -230,6 +331,7 @@
   var api = {
     SIZE: SIZE,
     SHIPS: SHIPS,
+    DIFFICULTIES: DIFFICULTIES,
     toIndex: toIndex,
     toRowCol: toRowCol,
     createBoard: createBoard,
