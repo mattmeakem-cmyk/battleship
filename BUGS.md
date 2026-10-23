@@ -5,7 +5,7 @@ Every bug found while building and testing the game, how it was found, and how i
 Testing used two tools:
 
 - **Logic tests**: [`tests/index.html`](tests/index.html). Open it in a browser and it runs unit tests against `js/logic.js`. It covers placement bounds and overlap, random placement (500 boards), shot results, and 200 full simulated games for the computer AI.
-- **Browser tests**: scripted Playwright runs against `index.html` in Chrome, at desktop size (1280×900) and as a touch phone (375×740). Screenshots from each run were reviewed by eye.
+- **Browser tests**: [`tests/browser/test_game.py`](tests/browser/test_game.py) plays `index.html` in Chrome with Playwright, at desktop size (1280×900) and as a touch phone (375×740). Screenshots from each run were reviewed by eye. See the README for how to run it.
 
 ## Bugs found and fixed
 
