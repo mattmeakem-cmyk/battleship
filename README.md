@@ -1,6 +1,10 @@
 # Battleship
 
-A classic game of Battleship you play in your web browser against a computer opponent. It is written in plain HTML, CSS and JavaScript with no frameworks and no build step, so it runs on GitHub Pages straight from `index.html`.
+A classic game of Battleship you play in your web browser against a computer opponent.
+
+**Play it here: https://mattmeakem-cmyk.github.io/battleship/**
+
+ It is written in plain HTML, CSS and JavaScript with no frameworks and no build step, so it runs on GitHub Pages straight from `index.html`.
 
 ## How to play
 
@@ -23,7 +27,7 @@ The computer searches the board in a spread-out pattern instead of firing at ran
 
 ## Running it
 
-- **Online:** enable GitHub Pages for this repo (Settings → Pages → Deploy from branch → `main` / root). The game will be at `https://<user>.github.io/battleship/`.
+- **Online:** https://mattmeakem-cmyk.github.io/battleship/ is hosted by GitHub Pages from the root of the `main` branch and updates automatically when `main` changes.
 - **Locally:** open `index.html` in any modern browser. No server or install is needed.
 
 It works on desktop and mobile. On small screens the boards stack, and during the battle the enemy board is shown first.
@@ -36,5 +40,30 @@ css/style.css     Styling, including the mobile layout
 js/logic.js       Game rules and computer AI (no DOM code, unit-tested)
 js/app.js         User interface: rendering, placement, turns
 tests/index.html  Open in a browser to run the logic tests
+tests/browser/    Automated browser tests (Playwright) that play the game end to end
 BUGS.md           Bugs found during testing and how they were fixed
 ```
+
+## Testing
+
+- **Logic tests:** open `tests/index.html` in a browser. It runs unit tests on the game rules and the computer AI, including thousands of simulated moves.
+- **Browser tests:** `tests/browser/test_game.py` opens the real game in Chrome and plays it like a user would. It covers:
+  - ships going off the board or overlapping
+  - clicking the same square twice
+  - clicking during the computer's turn
+  - restarting mid-game
+  - a full game through to "Play again"
+  - a phone-sized screen
+  - keyboard navigation
+
+  It also runs the logic tests. It needs Python 3:
+
+  ```
+  pip install -r tests/browser/requirements.txt
+  python -m playwright install chromium
+  python tests/browser/test_game.py              # add --headed to watch it play, --screenshots out/ to save screenshots
+  ```
+
+  It prints PASS or FAIL for each check and exits with an error if anything fails.
+
+Bugs found by these tests, and how each was fixed, are listed in [BUGS.md](BUGS.md).
