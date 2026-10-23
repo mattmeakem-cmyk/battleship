@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Battleship logic tests</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; }
+    .pass { color: #15803d; } .fail { color: #b91c1c; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Battleship logic tests</h1>
+  <p id="summary">Running…</p>
+  <ul id="results"></ul>
+  <script src="../js/logic.js"></script>
+  <script>
+    (function () {
+      var L = window.BattleshipLogic;
+      var results = [];
+      function test(name, fn) {
+        try { fn(); results.push({ name: name, ok: true }); }
+        catch (e) { results.push({ name: name, ok: false, error: e.message }); }
+      }
+      function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+      function eq(a, b, msg) { if (a !== b) throw new Error((msg || 'expected equal') + ': ' + a + ' !== ' + b); }
+      function seeded(seed) {
+        return function () { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+      }
+      var def = function (name) { return L.SHIPS.filter(function (s) { return s.name === name; })[0]; };
+
+      test('standard fleet', function () {
+        eq(L.SIZE, 10);
+        eq(L.SHIPS.map(function (s) { return s.name + s.size; }).join(','),
+          'Carrier5,Battleship4,Cruiser3,Submarine3,Destroyer2');
+      });
+
+      test('rejects ships going off the board', function () {
+        var b = L.createBoard();
+        assert(!L.canPlace(b, 5, 0, 6, true), 'horizontal overflow');
+        assert(!L.canPlace(b, 5, 6, 0, false), 'vertical overflow');
+        assert(!L.canPlace(b, 2, -1, 0, true), 'negative row');
+        assert(!L.canPlace(b, 2, 0, -1, true), 'negative col');
+        assert(L.canPlace(b, 5, 0, 5, true), 'fits flush to right edge');
+        assert(L.canPlace(b, 5, 5, 9, false), 'fits flush to bottom edge');
+        eq(L.placeShip(b, def('Carrier'), 9, 9, true), null, 'placeShip returns null when off board');
+        eq(b.ships.length, 0);
+      });
+
+      test('rejects overlapping ships', function () {
+        var b = L.createBoard();
+        assert(L.placeShip(b, def('Carrier'), 2, 2, true));
+        eq(L.placeShip(b, def('Battleship'), 0, 4, false), null, 'crossing overlap');
+        eq(L.placeShip(b, def('Destroyer'), 2, 6, true), null, 'end overlap');
+        assert(L.placeShip(b, def('Destroyer'), 3, 2, true), 'adjacent is allowed');
+      });
+
+      test('remove ship frees its cells and ids stay unique', function () {
+        var b = L.createBoard();
+        var a = L.placeShip(b, def('Carrier'), 0, 0, true);
+        var c = L.placeShip(b, def('Destroyer'), 5, 5, true);
+        L.removeShip(b, a.id);
+        assert(L.canPlace(b, 5, 0, 0, true));
+        var d = L.placeShip(b, def('Carrier'), 0, 0, true);
+        assert(d.id !== c.id, 'ids must not collide after removal');
+        eq(b.cells[L.toIndex(5, 5)], c.id);
+      });
+
+      test('random placement is always valid (500 boards)', function () {
+        for (var n = 0; n < 500; n++) {
+          var b = L.placeAllRandom(L.createBoard());
+          eq(b.ships.length, 5);
+          var occupied = b.cells.filter(function (x) { return x !== null; }).length;
+          eq(occupied, 17, 'no overlaps');
+          b.ships.forEach(function (s) {
+            s.cells.forEach(function (c, i) {
+              if (i === 0) return;
+              eq(c - s.cells[i - 1], s.horizontal ? 1 : 10, 'contiguous, no row wrap');
+            });
+          });
+        }
+      });
+
+      test('shots: miss, hit, sunk, repeat, invalid', function () {
+        var b = L.createBoard();
+        L.placeShip(b, def('Destroyer'), 0, 0, true);
+        eq(L.receiveShot(b, 50).result, 'miss');
+        eq(L.receiveShot(b, 50).result, 'repeat');
+        eq(L.receiveShot(b, 0).result, 'hit');
+        eq(L.receiveShot(b, 0).result, 'repeat', 'repeat hit does not double count');
+        eq(b.ships[0].hits.length, 1);
+        eq(L.receiveShot(b, 1).result, 'sunk');
+        assert(L.allSunk(b));
+        eq(L.receiveShot(b, -1).result, 'invalid');
+        eq(L.receiveShot(b, 100).result, 'invalid');
+        eq(L.receiveShot(b, undefined).result, 'invalid');
+      });
+
+      test('allSunk is false for an empty board', function () {
+        assert(!L.allSunk(L.createBoard()));
+      });
+
+      test('AI targets neighbours after a hit', function () {
+        var b = L.createBoard();
+        L.placeShip(b, def('Cruiser'), 4, 4, true);
+        L.receiveShot(b, L.toIndex(4, 5));
+        for (var n = 0; n < 50; n++) {
+          var t = L.chooseComputerShot(b, seeded(n + 1));
+          assert(L.neighbors(L.toIndex(4, 5)).indexOf(t) !== -1, 'should fire next to hit, got ' + t);
+        }
+      });
+
+      test('AI follows the line after two hits', function () {
+        var b = L.createBoard();
+        L.placeShip(b, def('Carrier'), 4, 2, true);
+        L.receiveShot(b, L.toIndex(4, 4));
+        L.receiveShot(b, L.toIndex(4, 5));
+        for (var n = 0; n < 50; n++) {
+          var t = L.chooseComputerShot(b, seeded(n + 1));
+          assert(t === L.toIndex(4, 3) || t === L.toIndex(4, 6), 'should extend line, got ' + t);
+        }
+      });
+
+      test('AI returns to hunting after a sink', function () {
+        var b = L.createBoard();
+        L.placeShip(b, def('Destroyer'), 0, 0, true);
+        L.placeShip(b, def('Carrier'), 9, 0, true);
+        L.receiveShot(b, 0); L.receiveShot(b, 1);
+        var t = L.chooseComputerShot(b, function () { return 0; });
+        assert(!b.shots[t], 'never repeats a shot');
+      });
+
+      test('AI never repeats and always finishes (200 full games)', function () {
+        for (var g = 0; g < 200; g++) {
+          var rng = seeded(g + 7);
+          var b = L.placeAllRandom(L.createBoard(), rng);
+          var shots = 0;
+          while (!L.allSunk(b)) {
+            var t = L.chooseComputerShot(b, rng);
+            var r = L.receiveShot(b, t);
+            assert(r.result !== 'repeat' && r.result !== 'invalid', 'bad shot ' + t + ' ' + r.result);
+            shots++;
+            assert(shots <= 100, 'too many shots');
+          }
+        }
+      });
+
+      test('AI is smarter than random (average shots)', function () {
+        var total = 0, games = 200;
+        for (var g = 0; g < games; g++) {
+          var rng = seeded(g + 99);
+          var b = L.placeAllRandom(L.createBoard(), rng);
+          while (!L.allSunk(b)) L.receiveShot(b, L.chooseComputerShot(b, rng));
+          total += Object.keys(b.shots).length;
+        }
+        var avg = total / games;
+        window.__aiAverageShots = avg;
+        assert(avg < 80, 'average shots ' + avg + ' should beat pure random (~96)');
+      });
+
+      var failed = results.filter(function (r) { return !r.ok; });
+      document.getElementById('summary').textContent =
+        (failed.length ? failed.length + ' failed, ' : 'All passed: ') + results.length + ' tests' +
+        (window.__aiAverageShots ? ' (AI avg ' + window.__aiAverageShots.toFixed(1) + ' shots/game)' : '');
+      document.getElementById('summary').className = failed.length ? 'fail' : 'pass';
+      var ul = document.getElementById('results');
+      results.forEach(function (r) {
+        var li = document.createElement('li');
+        li.className = r.ok ? 'pass' : 'fail';
+        li.textContent = (r.ok ? 'PASS ' : 'FAIL ') + r.name + (r.error ? ' — ' + r.error : '');
+        ul.appendChild(li);
+      });
+      window.__testResults = results;
+    })();
+  </script>
+</body>
+</html>

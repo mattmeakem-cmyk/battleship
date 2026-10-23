@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Battleship</title>
+  <meta name="description" content="Play Battleship in your browser against a computer opponent.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="phase-placement">
+  <header class="app-header">
+    <h1>Battleship</h1>
+    <button id="new-game" class="btn btn-ghost" type="button">New game</button>
+  </header>
+
+  <main>
+    <section class="status" aria-live="polite">
+      <p id="turn" class="turn">Place your ships</p>
+      <p id="message" class="message">Pick a ship, then click your board to place it.</p>
+    </section>
+
+    <section id="placement-controls" class="placement-controls" aria-label="Ship placement">
+      <div id="ship-dock" class="ship-dock"></div>
+      <div class="placement-buttons">
+        <button id="rotate" class="btn" type="button" aria-pressed="false">Rotate (R): Horizontal</button>
+        <button id="random" class="btn" type="button">Place randomly</button>
+        <button id="clear" class="btn" type="button">Clear</button>
+        <button id="start" class="btn btn-primary" type="button" disabled>Start battle</button>
+      </div>
+    </section>
+
+    <section class="boards">
+      <div class="board-wrap" id="player-wrap">
+        <h2>Your fleet</h2>
+        <div class="board" id="player-board" role="grid" aria-label="Your board"></div>
+        <ul class="fleet" id="player-fleet" aria-label="Your ships"></ul>
+      </div>
+      <div class="board-wrap" id="enemy-wrap">
+        <h2>Enemy waters</h2>
+        <div class="board" id="enemy-board" role="grid" aria-label="Enemy board"></div>
+        <ul class="fleet" id="enemy-fleet" aria-label="Enemy ships"></ul>
+      </div>
+    </section>
+
+    <section class="legend" aria-label="Legend">
+      <span><i class="swatch swatch-ship"></i>Ship</span>
+      <span><i class="swatch swatch-hit"></i>Hit</span>
+      <span><i class="swatch swatch-miss"></i>Miss</span>
+      <span><i class="swatch swatch-sunk"></i>Sunk</span>
+    </section>
+  </main>
+
+  <div id="overlay" class="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
+      <h2 id="result-title">You win!</h2>
+      <p id="result-text"></p>
+      <button id="play-again" class="btn btn-primary" type="button">Play again</button>
+    </div>
+  </div>
+
+  <script src="js/logic.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
