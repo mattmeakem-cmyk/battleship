@@ -3,7 +3,8 @@ End-to-end browser tests for the Battleship game.
 
 Serves the repo on a local port, opens the game in Chromium with Playwright and
 plays it like a user: placing ships, firing, edge cases, a full game, a phone
-viewport and keyboard navigation. Also runs the logic tests in tests/index.html.
+viewport, difficulty modes and keyboard navigation. Also runs the logic tests in
+tests/index.html.
 
     pip install -r tests/browser/requirements.txt
     python -m playwright install chromium
@@ -223,6 +224,39 @@ def test_full_game(pg, out_dir):
     check(count(pg, "#enemy-fleet li.is-sunk") == 0 and enemy_shots(pg) == 0, "Play again resets the game")
 
 
+def test_difficulty(browser, base):
+    print("\n== Difficulty ==")
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+    pg = ctx.new_page()
+    errors = track_errors(pg)
+    pg.goto(base + "/index.html")
+    checked = 'input[name="difficulty"]:checked'
+    check(pg.locator(checked).get_attribute("value") == "medium", "Medium is selected by default")
+    check(pg.text_content("#difficulty-badge") == "Medium", "enemy board shows Medium")
+    for name in ("Easy", "Hard"):
+        pg.locator("#difficulty label", has_text=name).click()
+        check(pg.locator(checked).get_attribute("value") == name.lower(), name + " toggle selects " + name)
+        check(pg.text_content("#difficulty-badge") == name, "enemy board shows " + name)
+    pg.locator('input[name="difficulty"][value="hard"]').focus()
+    pg.keyboard.press("ArrowLeft")
+    check(pg.locator(checked).get_attribute("value") == "medium", "arrow keys switch difficulty")
+    pg.keyboard.press("ArrowRight")
+    pg.locator("#new-game").click()
+    check(pg.locator(checked).get_attribute("value") == "hard", "New game keeps the chosen difficulty")
+    pg.locator("#random").click()
+    pg.locator("#start").click()
+    check(not pg.locator("#difficulty").is_visible(), "difficulty toggles hidden during battle")
+    check(count(pg, 'input[name="difficulty"]:disabled') == 3, "difficulty cannot change during battle")
+    for i in range(5):
+        wait_for_player_turn_or_end(pg)
+        ecell(pg, i * 11).click()
+    wait_for_player_turn_or_end(pg)
+    check(player_shots(pg) == 5, "Hard computer takes its turns")
+    check(pg.text_content("#difficulty-badge") == "Hard", "badge shows Hard during battle")
+    check(not errors, "no console errors with difficulty changes: %s" % errors)
+    ctx.close()
+
+
 def test_keyboard(browser, base):
     print("\n== Keyboard navigation ==")
     ctx = browser.new_context()
@@ -295,6 +329,7 @@ def main():
             check(not errors, "no console errors on desktop: %s" % errors)
             ctx.close()
 
+            test_difficulty(browser, base)
             test_keyboard(browser, base)
             test_mobile(browser, base, args.screenshots)
             if not args.cdp:

@@ -20,6 +20,14 @@
     </section>
 
     <section id="placement-controls" class="placement-controls" aria-label="Ship placement">
+      <div class="difficulty" role="radiogroup" aria-labelledby="difficulty-label">
+        <span id="difficulty-label" class="difficulty-label">Difficulty</span>
+        <div class="segmented" id="difficulty">
+          <label><input type="radio" name="difficulty" value="easy"><span>Easy</span></label>
+          <label><input type="radio" name="difficulty" value="medium" checked><span>Medium</span></label>
+          <label><input type="radio" name="difficulty" value="hard"><span>Hard</span></label>
+        </div>
+      </div>
       <div id="ship-dock" class="ship-dock"></div>
       <div class="placement-buttons">
         <button id="rotate" class="btn" type="button" aria-pressed="false">Rotate (R): Horizontal</button>
@@ -36,7 +44,7 @@
         <ul class="fleet" id="player-fleet" aria-label="Your ships"></ul>
       </div>
       <div class="board-wrap" id="enemy-wrap">
-        <h2>Enemy waters</h2>
+        <h2>Enemy waters <span id="difficulty-badge" class="badge is-medium">Medium</span></h2>
         <div class="board" id="enemy-board" role="grid" aria-label="Enemy board"></div>
         <ul class="fleet" id="enemy-fleet" aria-label="Enemy ships"></ul>
       </div>
