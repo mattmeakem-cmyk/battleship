@@ -25,6 +25,14 @@ Testing used two tools:
 - **How found:** In the game-over screenshot, the status-bar heading "You lose" was yellow (the colour for "Computer's turn") while the dialog heading was red.
 - **Fix:** Added an `is-lose` style so the loss message is red everywhere.
 
+### 5. Your own board's squares stayed in the Tab order during the battle
+- **How found:** Flagged by an automated code review of the merged PR, then confirmed with a keyboard test. During the battle, all 100 squares of your own board could still be reached with Tab, even though clicking them does nothing. Keyboard players had to tab past every one before reaching the enemy board.
+- **Fix:** `renderPlayerBoard` in `js/app.js` now disables your board's squares outside the placement phase. A keyboard test now goes from "New game" straight to enemy square A1, and your board's squares are enabled again after restarting.
+
+### 6. Choosing a ship with the keyboard lost focus
+- **How found:** Flagged by the same code review, then confirmed with a keyboard test. Pressing Enter on a ship chip rebuilt the whole ship list, which removed the button that had focus. The next Tab then started over from the top of the page.
+- **Fix:** The ship chips are now created once (`buildDock`), and `renderDock` only updates their classes and disabled state. After pressing Enter on "Cruiser", focus stays on Cruiser and Tab moves on to "Submarine".
+
 ## Edge cases tested (no bug found)
 
 These were handled in the first version of the code. The tests above confirm they still work:

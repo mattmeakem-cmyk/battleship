@@ -265,23 +265,30 @@
     renderFleet(els.enemyFleet, state.computer);
   }
 
-  function renderDock() {
-    var placed = placedNames();
+  function buildDock() {
     els.dock.innerHTML = '';
     L.SHIPS.forEach(function (def) {
       var chip = document.createElement('button');
       chip.type = 'button';
       chip.className = 'ship-chip';
-      var isPlaced = placed.indexOf(def.name) !== -1;
-      if (isPlaced) chip.classList.add('is-placed');
-      if (state.selected === def.name) chip.classList.add('is-selected');
-      chip.disabled = isPlaced;
       chip.dataset.ship = def.name;
-      chip.setAttribute('aria-pressed', String(state.selected === def.name));
       var pips = '';
       for (var i = 0; i < def.size; i++) pips += '<i></i>';
       chip.innerHTML = '<span>' + def.name + '</span><span class="pips" aria-hidden="true">' + pips + '</span>';
       els.dock.appendChild(chip);
+    });
+  }
+
+  function renderDock() {
+    // Update chips in place so a focused chip keeps keyboard focus.
+    var placed = placedNames();
+    Array.prototype.forEach.call(els.dock.children, function (chip) {
+      var name = chip.dataset.ship;
+      var isPlaced = placed.indexOf(name) !== -1;
+      chip.classList.toggle('is-placed', isPlaced);
+      chip.classList.toggle('is-selected', state.selected === name);
+      chip.disabled = isPlaced;
+      chip.setAttribute('aria-pressed', String(state.selected === name));
     });
     els.rotate.textContent = 'Rotate (R): ' + (state.horizontal ? 'Horizontal' : 'Vertical');
     els.rotate.setAttribute('aria-pressed', String(!state.horizontal));
@@ -308,6 +315,7 @@
       if (preview && preview.cells.indexOf(i) !== -1) cls += preview.ok ? ' preview-ok' : ' preview-bad';
       if (state.lastShot && state.lastShot.board === 'player' && state.lastShot.index === i) cls += ' just-shot';
       cell.className = cls;
+      cell.disabled = state.phase !== 'placement';
       cell.setAttribute('aria-label', 'Your ' + coord(i) + cellStatus(state.player, i, sunk, true));
     });
   }
@@ -401,6 +409,7 @@
     if (e.key === 'Escape' && !els.overlay.hidden) els.overlay.hidden = true;
   });
 
+  buildDock();
   buildBoard(els.playerBoard, playerCells, 'player');
   buildBoard(els.enemyBoard, enemyCells, 'enemy');
   newGame();
