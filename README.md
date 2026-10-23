@@ -19,7 +19,7 @@ A classic game of Battleship you play in your web browser against a computer opp
 
 ### The computer opponent
 
-The computer fires at random until it hits something. Then it fires at the squares around that hit. Once it has two hits in a row, it keeps going along that line until the ship sinks, and then goes back to firing at random.
+The computer searches the board in a spread-out pattern instead of firing at random. It fires on a diagonal grid spaced so that every remaining ship has to cross it, skips squares where none of your remaining ships could fit, and prefers open areas of the board. There is still some randomness, so it doesn't always take the best square. Once it hits something, it fires at the squares around that hit, follows the line once it has two hits in a row, and goes back to searching after the ship sinks.
 
 ## Running it
 

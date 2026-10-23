@@ -144,7 +144,34 @@
         }
       });
 
-      test('AI is smarter than random (average shots)', function () {
+      test('AI hunt never fires into a gap too small for any remaining ship', function () {
+        // Only the Carrier (5) is afloat. Rows 0-8 are all shot except a 4-square pocket at A1-D1.
+        var b = L.createBoard();
+        L.SHIPS.forEach(function (d, k) { if (d.name !== 'Carrier') L.placeShip(b, d, k, 0, true); });
+        L.placeShip(b, def('Carrier'), 9, 0, true);
+        for (var i = 0; i < 90; i++) if (i > 3) L.receiveShot(b, i);
+        for (var n = 0; n < 100; n++) {
+          var t = L.chooseComputerShot(b, seeded(n + 3));
+          eq(L.toRowCol(t).row, 9, 'fired into the dead pocket at ' + t);
+        }
+      });
+
+      test('AI hunt spreads out on a grid while the Destroyer is afloat', function () {
+        for (var g = 0; g < 50; g++) {
+          var rng = seeded(g + 500);
+          var b = L.placeAllRandom(L.createBoard(), rng);
+          var first = L.chooseComputerShot(b, rng);
+          var parity = (L.toRowCol(first).row + L.toRowCol(first).col) % 2;
+          for (var k = 0; k < 10; k++) {
+            var t = L.chooseComputerShot(b, rng);
+            var p = L.toRowCol(t);
+            eq((p.row + p.col) % 2, parity, 'hunt shot off the checkerboard');
+            b.shots[t] = 'miss';
+          }
+        }
+      });
+
+      test('AI difficulty: smarter than random hunting, not perfect (average shots)', function () {
         var total = 0, games = 200;
         for (var g = 0; g < games; g++) {
           var rng = seeded(g + 99);
@@ -154,7 +181,8 @@
         }
         var avg = total / games;
         window.__aiAverageShots = avg;
-        assert(avg < 80, 'average shots ' + avg + ' should beat pure random (~96)');
+        assert(avg < 55, 'average shots ' + avg + ' should beat random hunting (~60)');
+        assert(avg > 42, 'average shots ' + avg + ' should stay beatable, not near-perfect');
       });
 
       var failed = results.filter(function (r) { return !r.ok; });

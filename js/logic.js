@@ -171,10 +171,60 @@
       if (adj.length) return pick(adj);
     }
 
-    // 3) Hunt: random unshot square.
-    var remaining = [];
-    for (var i = 0; i < SIZE * SIZE; i++) if (unshot(i)) remaining.push(i);
-    return remaining.length ? pick(remaining) : -1;
+    // 3) Hunt: no open hits, so search for the next ship.
+    return chooseHuntShot(board, rng, unshot);
+  }
+
+  /**
+   * Search shots that spread across the board instead of clustering:
+   * - skip squares where no remaining ship could fit (e.g. small gaps between misses)
+   * - only fire on a diagonal grid spaced by the smallest remaining ship, so every
+   *   ship must cross it (a checkerboard while the Destroyer is afloat)
+   * - pick randomly, weighted towards open areas where more ship placements fit,
+   *   so the computer plays sensibly without always taking the best square
+   */
+  function chooseHuntShot(board, rng, unshot) {
+    var sizes = board.ships.filter(function (s) { return !isSunk(s); }).map(function (s) { return s.size; });
+    if (!sizes.length) sizes = SHIPS.map(function (s) { return s.size; });
+    var density = new Array(SIZE * SIZE).fill(0);
+    sizes.forEach(function (size) {
+      for (var r = 0; r < SIZE; r++) {
+        for (var c = 0; c < SIZE; c++) {
+          [true, false].forEach(function (horizontal) {
+            var cells = shipCells(size, r, c, horizontal);
+            if (cells && cells.every(unshot)) cells.forEach(function (i) { density[i]++; });
+          });
+        }
+      }
+    });
+
+    var minSize = Math.min.apply(null, sizes);
+    if (board.aiParity === undefined) board.aiParity = Math.floor(rng() * SIZE);
+    var onGrid = function (i) {
+      var p = toRowCol(i);
+      return (p.row + p.col) % minSize === board.aiParity % minSize;
+    };
+
+    var possible = [];
+    for (var i = 0; i < SIZE * SIZE; i++) if (unshot(i) && density[i] > 0) possible.push(i);
+    var grid = possible.filter(onGrid);
+    var candidates = grid.length ? grid : possible;
+    if (!candidates.length) {
+      for (var j = 0; j < SIZE * SIZE; j++) if (unshot(j)) candidates.push(j);
+      return candidates.length ? candidates[Math.floor(rng() * candidates.length)] : -1;
+    }
+    return weightedPick(candidates, function (i) { return density[i]; }, rng);
+  }
+
+  function weightedPick(list, weightOf, rng) {
+    var total = 0;
+    var weights = list.map(function (i) { var w = weightOf(i); total += w; return w; });
+    var roll = rng() * total;
+    for (var k = 0; k < list.length; k++) {
+      roll -= weights[k];
+      if (roll < 0) return list[k];
+    }
+    return list[list.length - 1];
   }
 
   var api = {

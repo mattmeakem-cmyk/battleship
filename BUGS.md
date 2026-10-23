@@ -33,6 +33,15 @@ Testing used two tools:
 - **How found:** Flagged by the same code review, then confirmed with a keyboard test. Pressing Enter on a ship chip rebuilt the whole ship list, which removed the button that had focus. The next Tab then started over from the top of the page.
 - **Fix:** The ship chips are now created once (`buildDock`), and `renderDock` only updates their classes and disabled state. After pressing Enter on "Cruiser", focus stays on Cruiser and Tab moves on to "Submarine".
 
+### 7. The computer's search shots clustered together
+- **How found:** Reported by the user after playing. Their screenshot showed many search shots (shots before the computer had a hit) right next to earlier misses, which made the computer too easy. A simulation of 1,000 games confirmed it: 56% of search shots were next to an earlier miss, and the computer needed 60.6 shots on average to win (worst game: 100).
+- **Fix:** Search shots now come from `chooseHuntShot` in `js/logic.js`:
+  - It skips squares where no remaining ship could fit.
+  - It only fires on a diagonal grid spaced by the smallest remaining ship (a checkerboard while the Destroyer is afloat).
+  - It picks at random, weighted towards open areas where more ship placements fit.
+
+  Shots that follow up a hit work the same as before. Over the same 1,000 games, 13% of search shots are next to a miss, and the computer averages 48.1 shots (worst game: 65). It doesn't always take the best square, so it stays beatable rather than near-perfect. A perfect strategy would average about 42–44. New tests in `tests/index.html` cover the dead-square rule and the grid pattern, and keep the average between 42 and 55.
+
 ## Edge cases tested (no bug found)
 
 These were handled in the first version of the code. The tests above confirm they still work:
@@ -51,4 +60,4 @@ These were handled in the first version of the code. The tests above confirm the
 | Firing after the game ends | Clicked an enemy square after the win/lose dialog appeared | Ignored |
 | "Play again" | Clicked it after a finished game | Boards, fleet status and messages all reset |
 | Rotate key during battle | Pressed `R` after starting | No effect |
-| Computer AI correctness | 200 simulated full games | Never fires the same square twice, always finishes, and averages about 59 shots per game (pure random needs about 96) |
+| Computer AI correctness | 200 simulated full games | Never fires the same square twice, always finishes, and averages about 48 shots per game (pure random needs about 96) |
