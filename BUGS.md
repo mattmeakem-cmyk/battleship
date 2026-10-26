@@ -34,7 +34,7 @@ Testing used two tools:
 - **Fix:** The ship chips are now created once (`buildDock`), and `renderDock` only updates their classes and disabled state. After pressing Enter on "Cruiser", focus stays on Cruiser and Tab moves on to "Submarine".
 
 ### 7. The computer's search shots clustered together
-- **How found:** Reported by the user after playing. Their screenshot showed many search shots (shots before the computer had a hit) right next to earlier misses, which made the computer too easy. A simulation of 1,000 games confirmed it: 56% of search shots were next to an earlier miss, and the computer needed 60.6 shots on average to win (worst game: 100).
+- **How found:** Found while playtesting. A screenshot of the computer's shots showed many search shots (shots before the computer had a hit) right next to earlier misses, which made the computer too easy. A simulation of 1,000 games confirmed it: 56% of search shots were next to an earlier miss, and the computer needed 60.6 shots on average to win (worst game: 100).
 - **Fix:** Search shots now come from `chooseHuntShot` in `js/logic.js`:
   - It skips squares where no remaining ship could fit.
   - It only fires on a diagonal grid spaced by the smallest remaining ship (a checkerboard while the Destroyer is afloat).
